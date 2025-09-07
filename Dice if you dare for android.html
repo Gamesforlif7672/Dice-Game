@@ -1,0 +1,230 @@
+package org.mickey.diceifyoudare;
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import java.util.Random;
+
+public class MainActivity extends Activity {
+
+    private Random random = new Random();
+    private int points = 0;
+
+    private int[] diceUpgrades = {1, 1, 1, 1, 1, 1};
+    private boolean[] diceUnlocked = {true, false, false, false, false, false};
+
+    private int[] unlockCosts = {0, 2500, 12500, 50000, 250000, 500000};
+    private int[] rollCosts = {0, 250, 1250, 5000, 25000, 50000};
+    private double[] upgradeScale = {1.15, 1.25, 1.35, 1.45, 1.55, 1.65};
+
+    private int[] diceMax = {6, 8, 10, 12, 20, 100};
+    private int[] baseMultipliers = new int[6]; // Calculated to break even at midpoint
+
+    private TextView resultText;
+    private TextView pointsText;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Calculate base multipliers to break even at midpoint
+        for (int i = 0; i < 6; i++) {
+            int avgRoll = (diceMax[i] + 1) / 2;
+            baseMultipliers[i] = (int) Math.ceil((double) rollCosts[i] / avgRoll);
+            if (baseMultipliers[i] < 1) baseMultipliers[i] = 1;
+        }
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(40, 40, 40, 40);
+
+        resultText = new TextView(this);
+        resultText.setTextSize(24);
+        resultText.setText("Welcome to Dice If You Dare!");
+        layout.addView(resultText);
+
+        pointsText = new TextView(this);
+        pointsText.setTextSize(20);
+        pointsText.setText("Points: " + points);
+        layout.addView(pointsText);
+
+        String[] diceNames = {"D6", "D8", "D10", "D12", "D20", "D100"};
+        LinearLayout diceLayout = new LinearLayout(this);
+        diceLayout.setOrientation(LinearLayout.VERTICAL);
+        layout.addView(diceLayout);
+
+        for (int i = 0; i < 6; i++) {
+            final int index = i;
+            Button diceButton = new Button(this);
+            updateDiceButtonText(diceButton, diceNames[i], index);
+            diceLayout.addView(diceButton);
+
+            diceButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (!diceUnlocked[index]) {
+                        if (points >= unlockCosts[index]) {
+                            points -= unlockCosts[index];
+                            diceUnlocked[index] = true;
+                            resultText.setText(diceNames[index] + " unlocked!");
+                            pointsText.setText("Points: " + points);
+                            updateDiceButtonText((Button) v, diceNames[index], index);
+                        } else {
+                            resultText.setText("Not enough points to unlock " + diceNames[index]);
+                        }
+                        return;
+                    }
+
+                    if (points >= rollCosts[index]) {
+                        points -= rollCosts[index];
+                        int roll = random.nextInt(diceMax[index]) + 1;
+                        int multiplier = baseMultipliers[index] * diceUpgrades[index];
+                        int total = roll * multiplier;
+                        points += total;
+                        resultText.setText("Rolled " + diceNames[index] + ": " + roll +
+                                           " × " + multiplier + " = " + total);
+                        pointsText.setText("Points: " + points);
+                    } else {
+                        resultText.setText("Not enough points to roll " + diceNames[index]);
+                    }
+                }
+            });
+        }
+
+        LinearLayout spacer = new LinearLayout(this);
+        LinearLayout.LayoutParams spacerParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
+        spacer.setLayoutParams(spacerParams);
+        layout.addView(spacer);
+
+        Button menuButton = new Button(this);
+        menuButton.setText("Menu");
+        layout.addView(menuButton);
+
+        menuButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showMenu(layout);
+            }
+        });
+
+        setContentView(layout);
+    }
+
+    private void updateDiceButtonText(Button btn, String name, int index) {
+        if (!diceUnlocked[index]) {
+            btn.setText(name + " (Unlock: " + unlockCosts[index] + ")");
+        } else {
+            btn.setText(name + " (Roll: " + rollCosts[index] + ")");
+        }
+    }
+
+    private void showMenu(LinearLayout mainLayout) {
+        LinearLayout menuLayout = new LinearLayout(MainActivity.this);
+        menuLayout.setOrientation(LinearLayout.VERTICAL);
+        menuLayout.setPadding(40, 40, 40, 40);
+
+        TextView menuTitle = new TextView(MainActivity.this);
+        menuTitle.setTextSize(24);
+        menuTitle.setText("Menu");
+        menuLayout.addView(menuTitle);
+
+        Button pointsDisplay = new Button(MainActivity.this);
+        pointsDisplay.setText("Points: " + points);
+        pointsDisplay.setEnabled(false);
+        menuLayout.addView(pointsDisplay);
+
+        String[] options = {"Dice", "Upgrades", "Draw", "Rebirth", "Prestige"};
+        for (String option : options) {
+            Button btn = new Button(MainActivity.this);
+            btn.setText(option);
+            menuLayout.addView(btn);
+
+            btn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (option.equals("Dice")) {
+                        setContentView(mainLayout);
+                    } else if (option.equals("Upgrades")) {
+                        showUpgradesMenu(mainLayout);
+                    } else {
+                        resultText.setText(option + " menu coming soon!");
+                        setContentView(mainLayout);
+                    }
+                }
+            });
+        }
+
+        setContentView(menuLayout);
+    }
+
+    private void showUpgradesMenu(LinearLayout mainLayout) {
+        LinearLayout upgradesLayout = new LinearLayout(MainActivity.this);
+        upgradesLayout.setOrientation(LinearLayout.VERTICAL);
+        upgradesLayout.setPadding(40, 40, 40, 40);
+
+        TextView upgradesTitle = new TextView(MainActivity.this);
+        upgradesTitle.setTextSize(24);
+        upgradesTitle.setText("Upgrades");
+        upgradesLayout.addView(upgradesTitle);
+
+        TextView pointsInUpgrade = new TextView(MainActivity.this);
+        pointsInUpgrade.setTextSize(20);
+        pointsInUpgrade.setText("Points: " + points);
+        upgradesLayout.addView(pointsInUpgrade);
+
+        String[] diceNames = {"D6", "D8", "D10", "D12", "D20", "D100"};
+        for (int i = 0; i < 6; i++) {
+            final int index = i;
+            Button upgradeBtn = new Button(MainActivity.this);
+            updateUpgradeButtonText(upgradeBtn, diceNames[i], index);
+            upgradesLayout.addView(upgradeBtn);
+
+            upgradeBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (!diceUnlocked[index]) {
+                        resultText.setText(diceNames[index] + " not unlocked yet!");
+                        return;
+                    }
+
+                    int baseCost = (index == 0) ? 50 : unlockCosts[index];
+                    double scale = upgradeScale[index];
+                    int cost = (int) (baseCost * Math.pow(scale, diceUpgrades[index] - 1));
+                    if (points >= cost) {
+                        points -= cost;
+                        diceUpgrades[index]++;
+                        resultText.setText(diceNames[index] + " upgraded! Level: " + diceUpgrades[index]);
+                        pointsText.setText("Points: " + points);
+                        pointsInUpgrade.setText("Points: " + points); // update points here
+                        updateUpgradeButtonText((Button) v, diceNames[index], index);
+                    } else {
+                        resultText.setText("Not enough points! Upgrade cost: " + cost);
+                    }
+                }
+            });
+        }
+
+        Button closeBtn = new Button(MainActivity.this);
+        closeBtn.setText("Back");
+        upgradesLayout.addView(closeBtn);
+        closeBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setContentView(mainLayout);
+            }
+        });
+
+        setContentView(upgradesLayout);
+    }
+
+    private void updateUpgradeButtonText(Button btn, String name, int index) {
+        int baseCost = (index == 0) ? 50 : unlockCosts[index];
+        double scale = upgradeScale[index];
+        int cost = (int) (baseCost * Math.pow(scale, diceUpgrades[index] - 1));
+        btn.setText(name + " Upgrade (Level: " + diceUpgrades[index] + ", Cost: " + cost + ")");
+    }
+}
